@@ -114,12 +114,10 @@ wss.on('connection', (ws, request) => {
   const player = players[ws.clientId]
 
   const pingInterval = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) {
+    wss.clients.forEach((client) => {
       ws.ping();
-    } else {
-      clearInterval(pingInterval);
     }
-  }, 30000); // Send a ping every 30 seconds (adjust the interval as needed)
+)}, 5000); // Send a ping every 30 seconds (adjust the interval as needed)
 
   // Log the client's remote address and the assigned ID
   console.log(`Client connected from ${request.connection.remoteAddress} with ID ${ws.clientId} and name ${player.name}`);
@@ -201,5 +199,6 @@ wss.on('connection', (ws, request) => {
     // Handle WebSocket close event and remove the user from the room
     console.log(`Client with ID ${ws.clientId} disconnected`);
     delete players[ws.clientId];
+    delete clients[ws.clientId]
   });
 });

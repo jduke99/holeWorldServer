@@ -40,6 +40,23 @@ function generateShortCode(length) {
   return code;
 }
 
+
+// Function to log players in a given room
+function logPlayersInRoom(roomCode) {
+  const room = rooms[roomCode];
+
+  if (room) {
+    console.log(`Players in room ${roomCode}:`);
+    room.players.forEach((player, index) => {
+      console.log(`Player ${index + 1}: ${player._socket.remoteAddress}`);
+      // You can log other player information as needed
+    });
+  } else {
+    console.log(`Room ${roomCode} not found.`);
+  }
+}
+
+
 wss.on('connection', (ws) => {
   // Handle WebSocket connections here
 
@@ -60,6 +77,8 @@ wss.on('connection', (ws) => {
 
       // Send the room code back to the user
       ws.send(JSON.stringify({ type: 'roomCode', code: roomCode }));
+      console.log("Room "+roomCode+" created!"); 
+
     } else if (parsedMessage.type === 'joinRoom') {
       const roomCode = parsedMessage.code;
 
@@ -74,6 +93,7 @@ wss.on('connection', (ws) => {
         // Send an error message if the room doesn't exist
         ws.send(JSON.stringify({ type: 'roomNotFound', message: 'Room not found' }));
       }
+      logPlayersInRoom(roomCode);
     }
 
     // Handle other message types as needed

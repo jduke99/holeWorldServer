@@ -113,11 +113,23 @@ wss.on('connection', (ws, request) => {
 
   const player = players[ws.clientId]
 
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+    } else {
+      clearInterval(pingInterval);
+    }
+  }, 30000); // Send a ping every 30 seconds (adjust the interval as needed)
+
   // Log the client's remote address and the assigned ID
   console.log(`Client connected from ${request.connection.remoteAddress} with ID ${ws.clientId} and name ${player.name}`);
 
   ws.on('message', (message) => {
     const parsedMessage = JSON.parse(message);
+
+    if (message === 'pong') {
+      player.lastActivity = Date.now();
+    }
 
     if (parsedMessage.type === 'createRoom') {
       // Generate a unique short code for the room (e.g., 4 characters)

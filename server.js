@@ -155,6 +155,7 @@ wss.on('connection', (ws, request) => {
         roomCode = generateShortCode(4); // Adjust the length as needed
       } while (rooms[roomCode]);
 
+      player.name=parsedMessage.name
       // Store the room information
       rooms[roomCode] = {
         players: [player], // Store the first player in the room
@@ -176,6 +177,7 @@ wss.on('connection', (ws, request) => {
       // Check if the room exists
       if (rooms[roomCode] && !rooms[roomCode].players.includes(player)) {
         // Add the user to the room
+        player.name=parsedMessage.name
         rooms[roomCode].players.push(player);
         console.log(JSON.stringify(rooms[roomCode]))
 

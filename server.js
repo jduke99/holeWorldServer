@@ -49,8 +49,10 @@ function broadcastToRoom(roomCode, message) {
   const room = rooms[roomCode];
   if (room) {
     room.players.forEach((playerInRoom) => {
-      clients[playerInRoom.id].ws.send(JSON.stringify(message));
-      // You can log other player information as needed
+      if (clients[playerInRoom.id]){
+        clients[playerInRoom.id].ws.send(JSON.stringify(message));
+        // You can log other player information as needed
+      }
     });
   } else {
     console.log(`Room ${roomCode} not found.`);
@@ -85,10 +87,11 @@ function createBall(player, speed, angle, skin, powerup) {
 
   const roomCode = player.roomCode; // Assuming you have the roomCode associated with the player
   const playersInRoom = rooms[roomCode].players;
-  const randomPlayerIndex = Math.floor(Math.random() * playersInRoom.length);
+  const otherPlayersInRoom = playersInRoom.filter(function(e) { return e !== player })
+  const randomPlayerIndex = Math.floor(Math.random() * otherPlayersInRoom.length);
 
   // Get the randomly selected player's WebSocket connection
-  const randomPlayerWs = playersInRoom[randomPlayerIndex];
+  const randomPlayerWs = otherPlayersInRoom[randomPlayerIndex];
 
   if (randomPlayerWs) {
     // Send a message to the randomly selected player
@@ -99,8 +102,9 @@ function createBall(player, speed, angle, skin, powerup) {
 
     // Convert the message to JSON and send it
     clients[randomPlayerWs.id].ws.send(JSON.stringify(messageToRandomPlayer));
+    //console.log(JSON.stringify(messageToRandomPlayer))
 
-    console.log('Ball created and sent to '+randomPlayerWs.name+' in the room via'+JSON.stringify(messageToRandomPlayer));
+    //console.log('Ball created and sent to '+randomPlayerWs.name+' in the room via'+JSON.stringify(messageToRandomPlayer));
   } else {
     console.log(`No other players in the room to send the ball.`);
   }
@@ -111,8 +115,10 @@ wss.on('connection', (ws, request) => {
   const clientId = nextClientId++;
   
   ws.clientId = clientId;
+  ws.roomCode = "0000"
 
   clients[ws.clientId]= {
+    clientId: clientId,
     ws: ws
   }
 
@@ -155,6 +161,7 @@ wss.on('connection', (ws, request) => {
       };
 
       player.roomCode=roomCode
+      ws.roomCode=roomCode
 
       // Send the room code back to the user
       ws.send(JSON.stringify({ type: 'roomCode', code: roomCode }));
@@ -175,6 +182,7 @@ wss.on('connection', (ws, request) => {
         // Send a message to confirm joining
         ws.send(JSON.stringify({ type: 'joinedRoom', code: roomCode }));
         player.roomCode=roomCode
+        ws.roomCode=roomCode
         logPlayersInRoom(roomCode);
          const playersInRoom=rooms[roomCode].players;
          broadcastToRoom(roomCode,{ type: 'playersInRoom', players: playersInRoom })
@@ -234,9 +242,15 @@ wss.on('connection', (ws, request) => {
   });
 
   ws.on('close', () => {
-    // Handle WebSocket close event and remove the user from the room
+    // Handle WebSocket close event and remove the user from the room, the client list, and the room
     console.log(`Client with ID ${ws.clientId} disconnected`);
+    const playerIndex=rooms[ws.roomCode].players.indexOf(player)
+    if (playerIndex !== -1) {
+      rooms[ws.roomCode].players.splice(playerIndex, 1);
+    }
     delete players[ws.clientId];
     delete clients[ws.clientId]
+    const playersInRoom=rooms[ws.roomCode].players;
+    broadcastToRoom(ws.roomCode,{ type: 'playersInRoom', players: playersInRoom })
   });
 });

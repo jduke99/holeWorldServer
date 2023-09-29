@@ -33,7 +33,7 @@ let nextClientId = 1;
 
 // Function to generate a random short code
 function generateShortCode(length) {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const characters = '0123456789';
   let code = '';
 
   for (let i = 0; i < length; i++) {
@@ -42,6 +42,19 @@ function generateShortCode(length) {
   }
 
   return code;
+}
+
+
+function broadcastToRoom(roomCode, message) {
+  const room = rooms[roomCode];
+  if (room) {
+    room.players.forEach((playerInRoom) => {
+      clients[playerInRoom.id].ws.send(JSON.stringify(message));
+      // You can log other player information as needed
+    });
+  } else {
+    console.log(`Room ${roomCode} not found.`);
+  }
 }
 
 
@@ -146,12 +159,15 @@ wss.on('connection', (ws, request) => {
       // Send the room code back to the user
       ws.send(JSON.stringify({ type: 'roomCode', code: roomCode }));
       console.log("Room "+roomCode+" created!"); 
+      const playersInRoom=rooms[roomCode].players;
+      broadcastToRoom(roomCode,{ type: 'playersInRoom', players: playersInRoom })
+      //ws.send(JSON.stringify({ type: 'playersInRoom', players: playersInRoom }));
 
     } else if (parsedMessage.type === 'joinRoom') {
       const roomCode = parsedMessage.code;
 
       // Check if the room exists
-      if (rooms[roomCode]) {
+      if (rooms[roomCode] && !rooms[roomCode].players.includes(player)) {
         // Add the user to the room
         rooms[roomCode].players.push(player);
         console.log(JSON.stringify(rooms[roomCode]))
@@ -159,6 +175,28 @@ wss.on('connection', (ws, request) => {
         // Send a message to confirm joining
         ws.send(JSON.stringify({ type: 'joinedRoom', code: roomCode }));
         player.roomCode=roomCode
+        logPlayersInRoom(roomCode);
+         const playersInRoom=rooms[roomCode].players;
+         broadcastToRoom(roomCode,{ type: 'playersInRoom', players: playersInRoom })
+      } else {
+        // Send an error message if the room doesn't exist
+        if (!rooms[roomCode]) {
+        ws.send(JSON.stringify({ type: 'roomNotFound', message: 'Room not found' }));
+        } else 
+        {
+          ws.send(JSON.stringify({ type: 'playerAlreadyInRoom', message: 'Player already in Room' }));  
+        }
+      }
+    } else if (parsedMessage.type === 'getPlayersInRoom') {
+      const roomCode = parsedMessage.code;
+
+      // Check if the room exists
+      if (rooms[roomCode]) {
+        // Add the user to the room
+        const playersInRoom=rooms[roomCode].players;
+        console.log(JSON.stringify(playersInRoom))
+        // Send a message to confirm joining
+        ws.send(JSON.stringify({ type: 'playersInRoom', players: playersInRoom }));
       } else {
         // Send an error message if the room doesn't exist
         ws.send(JSON.stringify({ type: 'roomNotFound', message: 'Room not found' }));

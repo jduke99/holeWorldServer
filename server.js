@@ -125,8 +125,9 @@ wss.on('connection', (ws, request) => {
   players[ws.clientId] = {
     id: ws.clientId,
     name: `Player ${ws.clientId}`,
-    ballColor: 'defaultColor',
+    icon: 'defaultIcon',
     explosionType: 'defaultExplosion',
+    playerType: 'human'
     // Add more attributes as needed
   };
 
@@ -143,6 +144,7 @@ wss.on('connection', (ws, request) => {
 
   ws.on('message', (message) => {
     const parsedMessage = JSON.parse(message);
+    //console.log(parsedMessage)
 
     if (message === 'pong') {
       player.lastActivity = Date.now();
@@ -217,16 +219,74 @@ wss.on('connection', (ws, request) => {
       // Update player attributes based on the received message
       if (parsedMessage.attributes.name) {
         player.name = parsedMessage.attributes.name;
-        console.log(`Player ${clientId} updated their name to: ${player.name}`);
+        console.log(`${player.name} updated their name to: ${player.name}`);
       }
-      if (parsedMessage.attributes.ballColor) {
-        player.ballColor = parsedMessage.attributes.ballColor;
-        console.log(`Player ${clientId} updated their ball color to: ${player.ballColor}`);
+      if (parsedMessage.attributes.icon) {
+        player.icon = parsedMessage.attributes.icon;
+        console.log(`${player.name} updated their ball icon to: ${player.icon}`);
       }
       if (parsedMessage.attributes.explosionType) {
         player.explosionType = parsedMessage.attributes.explosionType;
         console.log(`Player ${clientId} updated their explosion type to: ${player.explosionType}`);
       }
+      const playersInRoom=rooms[ws.roomCode].players;
+      broadcastToRoom(ws.roomCode,{ type: 'playersInRoom', players: playersInRoom })
+
+      // Add more attribute updates as needed
+    } else if (parsedMessage.type === 'updateRoomInfo') {
+      console.log("got update request");
+      const roomCode = parsedMessage.code;
+
+      if (rooms[roomCode]) {
+        const room = rooms[roomCode];
+
+        // Update player attributes based on the received message
+        if (parsedMessage.creator) {
+          room.creator = parsedMessage.creator;
+          console.log(`${roomCode} updated creator to: ${room.creator}`);
+        }
+        if (parsedMessage.cpus) {
+          room.cpus = parsedMessage.cpus;
+          console.log(`${roomCode} updated cpus to: ${room.cpus}`);
+        }
+        if (parsedMessage.num_players) {
+          room.num_players = parsedMessage.num_players;
+          console.log(`${roomCode} updated num_players to: ${room.num_players}`);
+        }
+        if (parsedMessage.round_length) {
+          room.round_length = parsedMessage.round_length;
+          console.log(`${roomCode} updated round length to: ${room.round_length}`);
+        }
+        broadcastToRoom(ws.roomCode,{ type: 'updateRoomInfo', roomInfo: room })
+     }
+      // Add more attribute updates as needed
+    } else if (parsedMessage.type === 'getRoomInfo') {
+      const roomCode = parsedMessage.code;
+
+      if (rooms[roomCode]) {
+        const room = rooms[roomCode];
+        broadcastToRoom(ws.roomCode,{ type: 'updateRoomInfo', roomInfo: room })
+     }
+      // Add more attribute updates as needed
+    } else if (parsedMessage.type === 'addCPU') {
+      const roomCode = parsedMessage.code;
+
+      if (rooms[roomCode]) {
+        const room = rooms[roomCode];
+        const cpu = {
+          name: parsedMessage.name,
+          icon: parsedMessage.icon,
+          explosionType: 'defaultExplosion',
+          playerType: 'cpu'
+          // Add more attributes as needed
+        };
+        if (!rooms[roomCode].players.includes(cpu)){
+        rooms[roomCode].players.push(cpu);
+        console.log("cpu added")
+        }
+         const playersInRoom=rooms[roomCode].players;
+         broadcastToRoom(roomCode,{ type: 'playersInRoom', players: playersInRoom })
+     }
       // Add more attribute updates as needed
     } else if (parsedMessage.type === 'createBall') {
       // Handle the 'createBall' message
@@ -246,6 +306,10 @@ wss.on('connection', (ws, request) => {
   ws.on('close', () => {
     // Handle WebSocket close event and remove the user from the room, the client list, and the room
     console.log(`Client with ID ${ws.clientId} disconnected`);
+    if (ws.roomCode)
+    {
+      if (rooms[ws.roomCode])
+      {
     const playerIndex=rooms[ws.roomCode].players.indexOf(player)
     if (playerIndex !== -1) {
       rooms[ws.roomCode].players.splice(playerIndex, 1);
@@ -254,5 +318,7 @@ wss.on('connection', (ws, request) => {
     delete clients[ws.clientId]
     const playersInRoom=rooms[ws.roomCode].players;
     broadcastToRoom(ws.roomCode,{ type: 'playersInRoom', players: playersInRoom })
+  }
+}
   });
 });
